@@ -900,6 +900,7 @@ a:hover { text-decoration: underline; }
 
 .detail-modal__backdrop {
   position: relative;
+  z-index: 0;
   height: 210px;
   flex-shrink: 0;
   overflow: hidden;
@@ -922,6 +923,8 @@ a:hover { text-decoration: underline; }
   flex: 1;
   position: relative;
   z-index: 1;
+  margin-top: -78px;
+  padding-top: 78px;
 }
 
 .detail-modal__left {
