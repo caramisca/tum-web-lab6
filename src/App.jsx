@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useCallback } from 'react'
 import { useMovies } from './hooks/useMovies'
 import { useTheme } from './hooks/useTheme'
 import { loadApiKey, saveApiKey } from './utils/storage'
@@ -9,6 +9,7 @@ import AddMovieModal from './components/AddMovieModal'
 import MovieDetailModal from './components/MovieDetailModal'
 import ApiKeySetup from './components/ApiKeySetup'
 import SettingsModal from './components/SettingsModal'
+import Snackbar from './components/Snackbar'
 
 export default function App() {
   const { movies, addMovie, removeMovie, toggleLike, setStatus, setRating, updateMovie } = useMovies()
@@ -20,6 +21,15 @@ export default function App() {
   const [selectedMovie, setSelectedMovie] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [activeTab, setActiveTab] = useState('all')
+  const [toast, setToast] = useState({ message: '', type: 'success', visible: false })
+  const toastTimer = useRef(null)
+
+  const showToast = useCallback((message, type = 'success') => {
+    if (toastTimer.current) clearTimeout(toastTimer.current)
+    setToast({ message, type, visible: true })
+    toastTimer.current = setTimeout(() =>
+      setToast(prev => ({ ...prev, visible: false })), 2800)
+  }, [])
 
   const [filters, setFilters] = useState({
     type: 'all',
@@ -139,7 +149,11 @@ export default function App() {
       {showAddModal && (
         <AddMovieModal
           apiKey={apiKey}
-          onAdd={(data) => { addMovie(data); setShowAddModal(false) }}
+          onAdd={(data) => {
+            addMovie(data)
+            setShowAddModal(false)
+            showToast(`"${data.title}" added to your list`)
+          }}
           onClose={() => setShowAddModal(false)}
           existingIds={movies.map(m => m.tmdbId).filter(Boolean)}
         />
@@ -149,21 +163,41 @@ export default function App() {
         <MovieDetailModal
           movie={liveSelectedMovie}
           onClose={() => setSelectedMovie(null)}
-          onToggleLike={() => toggleLike(liveSelectedMovie.id)}
-          onRemove={() => { removeMovie(liveSelectedMovie.id); setSelectedMovie(null) }}
-          onStatusChange={(status) => setStatus(liveSelectedMovie.id, status)}
-          onRatingChange={(r) => setRating(liveSelectedMovie.id, r)}
-          onUpdate={(updates) => updateMovie(liveSelectedMovie.id, updates)}
+          onToggleLike={() => {
+            const willLike = !liveSelectedMovie.liked
+            toggleLike(liveSelectedMovie.id)
+            showToast(willLike ? 'Added to liked' : 'Removed from liked', willLike ? 'success' : 'info')
+          }}
+          onRemove={() => {
+            removeMovie(liveSelectedMovie.id)
+            setSelectedMovie(null)
+            showToast(`"${liveSelectedMovie.title}" removed`, 'info')
+          }}
+          onStatusChange={(status) => {
+            setStatus(liveSelectedMovie.id, status)
+            const labels = { watched: 'Marked as Watched', watching: 'Marked as Watching', watchlist: 'Added to Watchlist' }
+            showToast(labels[status] || 'Status updated')
+          }}
+          onRatingChange={(r) => {
+            setRating(liveSelectedMovie.id, r)
+            showToast(r ? `Rated ${r} star${r !== 1 ? 's' : ''}` : 'Rating removed')
+          }}
+          onUpdate={(updates) => {
+            updateMovie(liveSelectedMovie.id, updates)
+            showToast('Notes saved')
+          }}
         />
       )}
 
       {showSettings && (
         <SettingsModal
           currentKey={apiKey}
-          onSave={handleApiKeySave}
+          onSave={(key) => { handleApiKeySave(key); showToast('API key saved') }}
           onClose={() => setShowSettings(false)}
         />
       )}
+
+      <Snackbar message={toast.message} visible={toast.visible} type={toast.type} />
     </div>
   )
 }
